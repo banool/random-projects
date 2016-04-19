@@ -1,2 +1,0 @@
-f ~/.bash_profile
-d ~/Downloads/refind-bin-0.8.3

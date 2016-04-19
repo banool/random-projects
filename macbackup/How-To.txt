@@ -1,3 +1,0 @@
-macbackup.py will copy all the files and directories listed in copyfiles.txt.
-copyfiles.txt must be formatted like so:
-
