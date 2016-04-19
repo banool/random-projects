@@ -1,0 +1,1 @@
+f = open("swag.txt", "r")

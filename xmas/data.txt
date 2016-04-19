@@ -1,0 +1,31 @@
+# The data file for all the family members.
+# Format:
+# First name, Last name, Adult/Child
+
+  Jenny, Scott, A
+  Joe, MacGowan, A
+  Jess, MacGowan, A
+  Tom, MacGowan, A
+  Michael, MacGowan, A
+  
+  Maria, Scott, A
+  David, Scott, A
+  Kate, Scott, C
+  Jack, Scott, C
+  Tom, Scott, C
+  Sam, Scott, C
+
+  Michael, Scott, A
+  Michelle, Unknown, A
+  James, Scott, A
+  Maddy, Scott, A
+
+  Deborah, Porteous, A
+  Andrew, Porteous, A
+  #Daniel, Porteous, A
+  Meghan, Porteous, C
+  
+
+  Max, Scott, C
+
+  Tess, Scott, A

@@ -1,0 +1,29 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Big Noggin - Challenge 2</title>
+    <script type="text/javascript">
+        function showMessage() {
+            var count = 1; // Meaning it also counts the correct attempt.
+            var answer;
+            do {
+                answer = prompt("What can you win with the Big Noggin competition?");
+                if (answer != "Xbox") {
+                    alert('Your answer, ' + answer + ', is incorrect, you are in the wrong competition!');
+                    count++;
+                    if (count > 3) {
+                        alert("Did you check case-sensitivity?");
+                    }
+                }
+            } while (answer != 'Xbox');
+
+            document.write('<p>Correct! You will be in with a chance to WIN an Xbox for fixing this code!</p>');
+            document.write("<p>It took you " + count + " attempts to get the correct answer.</p>");
+            document.write("<p><input type='button' value='I&#39;m a new button.' /></p>");
+        }
+    </script>
+</head>
+<body>
+    <input type="button" value="Run the code" onclick="showMessage()" />
+</body>
+</html>

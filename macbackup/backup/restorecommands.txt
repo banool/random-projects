@@ -1,0 +1,1 @@
+cp -r "./refind-bin-0.8.3" "/Users/daniel/Downloads/refind-bin-0.8.3"

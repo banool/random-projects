@@ -1,0 +1,14 @@
+Probs need python 2.7 installed for this to work, 32 bit version I think.
+Tried compiling into an .exe but that didn't work out too well.
+
+Hopefully the external module "requests" shouldn't have to be installed since it is right here, but
+if it throws errors about request.get then that'll be it.
+You have to move those two requests folders in here to your python installation, probably:
+C:\Python27\Lib\site-packages
+
+Run using that batch file
+
+kk sweeeeeet
+
+btw if you want to see the actual code, right click on riot api stat test.py (not .pyc) and then
+edit it with notepad (or IDLE if you have python installed).

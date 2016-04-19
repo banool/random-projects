@@ -1,0 +1,22 @@
+AGRI20026 - Plant Growth Processes
+ATOC20001 - Weather and Climate Systems
+#BINF20001 - The Future of Health in a Data Storm
+DASC20011 - Companion Animal Biology
+DASC20013 - Topics in Animal Health
+ENGR20003 - Engineering Materials
+ENST20002 - Environmental Change Field Class
+ERTH20001 - Dangerous Earth
+ERTH20002 - Environmental Geosciences
+ERTH20003 - Past Climates: Icehouse to Greenhouse
+EVSC20002 - Soil and Water Resources
+FOOD20003 - Food Chemistry, Biology and Nutrition
+GEOG20009 - Landscapes and Diversity
+GEOM20013 - Applications of GIS
+GEOM20015 - Surveying and Mapping
+INFO20002 - Foundations of Informatics
+PSYC20006 - Biological Psychology
+PSYC20007 - Cognitive Psychology
+PSYC20008 - Developmental Psychology
+PSYC20009 - Personality and Social Psychology
+SCIE20001 - Thinking Scientifically
+ZOOL20004 - Australian Wildlife Biology
