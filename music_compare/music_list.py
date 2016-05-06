@@ -180,11 +180,12 @@ if remote == -1:
     if remote == -1:
         print("Couldn't find remote directory via afp or smb.\nMake sure you have used the browse option in the 'Connect to server' menu.\nAlternatively, mount the music dir via samba.\n")
         print("Attempting to mount the dir via smb automatically...\n")
+    elif remote == 0:
+        keyboard_interrupt()
     else:
         print("Found dir using smb.")
 elif remote == 0:
-    print("Keyboard interrupt received. Nothing was changed.\nTerminating...")
-    exit(0)
+    keyboard_interrupt()
 
 # Attempting to connect the drive automatically
 mountLocation = "/Users/daniel/Desktop/tempMount"
@@ -206,11 +207,18 @@ def unmount():
     os.system(umountCommand)
     print("Unmounted the remote drive.")
 
+def keyboard_interrupt():
+	unmount()
+	print("Keyboard interrupt received. Nothing was changed.\nTerminating...")
+	exit(0)
+
 os.system(mountCommand)
 print("Mounted via smb automatically to " + mountLocation)
 
 start_remote = mountLocation
 remote = crawl(start_remote, music_exts, excludedDirs)
+if remote == 0:
+	keyboard_interrupt()
 
 
 # Isolating the two lists returned from comp. The first are the full paths.
@@ -238,7 +246,7 @@ while counter < end:
     else:
         counter += 1
 """
-Note: We only incrememnt the counter when we don't pop. Because pop returs
+Note: We only incrememnt the counter when we don't pop. Because pop returns
 the item at the given index AND deletes it, if we increase the counter after
 popping we will skip a value. When we DO pop we decrease the required end
 counter, since the list is now one item smaller.
