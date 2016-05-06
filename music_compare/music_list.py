@@ -150,8 +150,9 @@ def comp(list1, list2):
     #print(list2)
     for val in list1:
         if val[0] not in list2:
-            output.append(val[1])
-            output_names.append(val[0])
+            if ".AppleDouble" not in val[1]:
+                output.append(val[1])
+                output_names.append(val[0])
     return (output, output_names)
 
 # Getting list of local files from record.txt
