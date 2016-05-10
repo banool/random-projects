@@ -56,6 +56,11 @@ that will attempt to mount the drive itself via smb if it hasn't been manually
 mounted by the user using afp or smb.
 
 Credit: http://stackoverflow.com/questions/21590361/mount-windows-smb-shares-on-a-mac-using-python
+
+Update 10/05/16:
+Adds .wav files to the flac_files folder since iTunes can't handle their metadata properly either.
+The are probably other file formats which should also be handled separately.
+A more extensible approach might be to have two lists, one for supported and one for not.
 """
 
 import os
@@ -228,10 +233,10 @@ comp_output = comp(remote,local)
 diff = comp_output[0]
 
 """
-Added on 07/05/15. Dealing with .flac files
+Added on 07/05/15. Dealing with .flac and .wav files
 Checks the differences and adds them to a folder in
 the iTunes Media folder: iTunes Media/flac_files.
-These can then be converted to mp3.
+These can then be converted to mp3 or maybe aiff.
 """
 diff_flac = []
 diff_flac_clean = []
@@ -240,7 +245,7 @@ diff_flac_clean = []
 counter = 0
 end = len(diff)
 while counter < end:
-    if diff[counter][-4:] == "flac":
+    if diff[counter][-4:] == "flac" or diff[counter][-3:] == "wav":
         diff_flac.append(diff.pop(counter))
         diff_flac_clean.append(comp_output[1].pop(counter))
         end -= 1
@@ -284,19 +289,19 @@ if len(diff_flac) > 0:
     for i in diff_flac_clean:
         print(i)
     print("\n")
-    confirm2 = input("There were %s .flac files found.\nWould you like to add them to %s? " % ((str(len(diff_flac)), start_local+flac_ending)))[0].lower()
+    confirm2 = input("There were %s .flac or .wav files found.\nWould you like to add them to %s? " % ((str(len(diff_flac)), start_local+flac_ending)))[0].lower()
     if confirm2 != "y":
-        print("Ok, ignoring .flac files.")
+        print("Ok, ignoring .flac and .wav files.")
     else:
-        print("Adding commands to copy the .flac files to %s to %s" % (start_local+flac_ending, instructions_fname))
-        os.system("mkdir '%s'" % start_local+flac_ending)
+        print("Adding commands to copy the .flac and .wav files to %s to %s" % (start_local+flac_ending, instructions_fname))
+        os.system("mkdir -p '%s'" % start_local+flac_ending)
         for i in diff_flac:
             instructions.append("""cp "%s" "%s"\n""" % (i, start_local+flac_ending))
 else:
-    print("No .flac files found, continuing...")
+    print("No .flac or .wav files found, continuing...")
 
 if confirm1 != "y" and confirm2 != "y":
-    print("Neither non-flac nor flac options were accepted. Exiting.")
+    print("Neither non-flac nor flac/wav options were accepted. Exiting.")
     unmount()
     exit()
 
