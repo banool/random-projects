@@ -74,7 +74,7 @@ ext_fname = "extensions.txt"
 instructions_fname = "instructions.sh"
 
 # TODO this shouldn't be necessary, crawl is starting one dir too high up.
-excludedDirs = ["Album Artwork", "AppleDouble"]
+excludedDirs = ["Album Artwork"]
 
 # Windows 7 using cygwin
 if system == "CYGWIN_NT-6.1-WOW":
@@ -134,8 +134,7 @@ def crawl(start, exts, excludedDirs):
     try:
         print("Crawling remote...")
         for root, dirs, files in os.walk(start, topdown=True):
-            # Excluding certain directories from crawling. 
-            # Update 18/05/16: Not sure this does anything.
+            # Excluding certain directories from crawling.
             dirs[:] = [d for d in dirs if d not in excludedDirs]
             for file in files:
                 if file.split(".")[-1] in exts:
@@ -178,11 +177,11 @@ music_exts = get_extensions(ext_fname, True)
 
 
 # Attempting to find the drive having been connected manually.
-start_remote = base_remote + "/iTunes Media/Music"
+start_remote = base_remote + "/iTunes Media"
 remote = crawl(start_remote, music_exts, excludedDirs)
 if remote == -1:
     print("Couldn't find the remote dir via afp, trying smb.")
-    start_remote = base_remote_smb + "/iTunes Media/Music"
+    start_remote = base_remote_smb + "/iTunes Media"
     remote = crawl(start_remote, music_exts, excludedDirs)
     if remote == -1:
         print("Couldn't find remote directory via afp or smb.\nMake sure you have used the browse option in the 'Connect to server' menu.\nAlternatively, mount the music dir via samba.\n")
@@ -222,7 +221,7 @@ def keyboard_interrupt():
 os.system(mountCommand)
 print("Mounted via smb automatically to " + mountLocation)
 
-start_remote = mountLocation + "/iTunes Media/Music"
+start_remote = mountLocation
 remote = crawl(start_remote, music_exts, excludedDirs)
 if remote == 0:
 	keyboard_interrupt()
@@ -290,14 +289,14 @@ if len(diff_flac) > 0:
     for i in diff_flac_clean:
         print(i)
     print("\n")
-    confirm2 = input("There were %s .flac or .wav files found.\nWould you like to add them to %s? " % ((str(len(diff_flac)), base_local + flac_ending)))[0].lower()
+    confirm2 = input("There were %s .flac or .wav files found.\nWould you like to add them to %s? " % ((str(len(diff_flac)), start_local+flac_ending)))[0].lower()
     if confirm2 != "y":
         print("Ok, ignoring .flac and .wav files.")
     else:
-        print("Adding commands to copy the .flac and .wav files to %s to %s" % (base_local + flac_ending, instructions_fname))
-        os.system("mkdir -p '%s'" % base_local + flac_ending)
+        print("Adding commands to copy the .flac and .wav files to %s to %s" % (start_local+flac_ending, instructions_fname))
+        os.system("mkdir -p '%s'" % start_local+flac_ending)
         for i in diff_flac:
-            instructions.append("""cp "%s" "%s"\n""" % (i, base_local + flac_ending))
+            instructions.append("""cp "%s" "%s"\n""" % (i, start_local+flac_ending))
 else:
     print("No .flac or .wav files found, continuing...")
 
