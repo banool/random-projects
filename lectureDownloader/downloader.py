@@ -1,13 +1,25 @@
 #!/usr/bin/python
 
 from subprocess import call
+from sys import exit
 
 # Target should be a list of urls one on a line.
 target = "target.txt"
 cookies = "cookies.txt"
-subjectName = "comp30023"
+subjectName = "geom20013"
 pauseLocation = "pause.txt"
 commandsLocation = "commands.txt"
+
+# Modify this to include any lectures that didn't
+# take place. The format is [week, [lectureNumber]]/
+# Example: (6, [1, 3]). Meaning lectures 1 and 3
+# were missed on week 6.
+excluded = [(3, [1, 2]), (7, [2])]
+
+# Should match the number of lectures per week.
+# This assumes that there will always be this many
+# lectures per week.
+numLecturesPerWeek = 2
 
 def printErrors(errors):
     print("There were errors with the following commands:")
@@ -59,23 +71,12 @@ if isfile(pauseLocation) and isfile(commandsLocation):
 
 # If not, we move forward to generating the commands.
 
-# Modify this to include any lectures that didn't
-# take place. The format is [week, [lectureNumber]]/
-# Example: (6, [1, 3]). Meaning lectures 1 and 3
-# were missed on week 6.
-excluded = [(4, [1, 2])]
-
 # Read in the file of target downloads.
 with open(target, "r") as f:
     targetDownloads = [x.strip() for x in f.readlines()]
 
 # Getting weeks 1 through to 12.
 weeks = range(1, 13)
-
-# Should match the number of lectures per week.
-# This assumes that there will always be this many
-# lectures per week.
-numLecturesPerWeek = 2
 
 # Building a generic list not removing exclusions.
 outputNumbering = []
@@ -138,8 +139,6 @@ for i in range(0, numLecsNumbering):
 
 for i in commands:
     print(i)
-
-from sys import exit
 
 # Getting final confirmation and running. Happy downloading!
 # Try to do this in a screen.
