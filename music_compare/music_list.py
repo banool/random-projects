@@ -61,17 +61,26 @@ Update 10/05/16:
 Adds .wav files to the flac_files folder since iTunes can't handle their metadata properly either.
 The are probably other file formats which should also be handled separately.
 A more extensible approach might be to have two lists, one for supported and one for not.
+
+Update 10/06/16:
+Significant performance improvement implemented. In crawl(), each of the folders in the base start
+location are checked to see if they have changed since last we checked and only these are crawled.
+To support this, the time of last check in UNIX epoch time is put at the top of the record.txt file.
+This change has resulted in an enormous decrease in time spent on disk reads (and minor computation).
+Also cleaned up the logic of crawl() calls a bit, but that code block is still very messy.
 """
 
 import os
 from sys import exit
 import platform
+from time import ctime, time
 
 system = platform.system()
-print(system)
+print("Running on", system)
 
 ext_fname = "extensions.txt"
 instructions_fname = "instructions.sh"
+timezoneOffset = 10 * 60 * 60 # Dirty timezone hack for GMT +10.
 
 # TODO this shouldn't be necessary, crawl is starting one dir too high up.
 excludedDirs = ["Album Artwork", "AppleDouble"]
@@ -88,7 +97,6 @@ if system == "CYGWIN_NT-6.1-WOW":
     exit()
 # Mac OSX 10.10
 elif system == "Darwin":
-    print("Running on the Mac.")
     base_local = "/Users/daniel/Music/iTunes"
     base_remote = "/Volumes/iTunes_Server"
     base_remote_smb = "/Volumes/Music"
@@ -123,7 +131,7 @@ def get_extensions(fname, decode_y):
             output2.append(i.decode("utf-8").rstrip('\n'))
     return output2
 
-def crawl(start, exts, excludedDirs):
+def crawl(start, exts, excludedDirs, lastCheckTime):
     output = []
 
     if os.path.isdir(start):
@@ -131,15 +139,31 @@ def crawl(start, exts, excludedDirs):
     else:
         return -1
 
+    print("Crawling remote...")
+    changed = []
+
+    # Checking that the record isn't freshly made (new).
+    if lastCheckTime > 0:
+        # Recurse through each dir and check if they were made after the
+        # last time we checked the record (UNIX epoch time).
+        for i in os.listdir(start):
+            if int(os.path.getmtime(start+"/"+i)) > lastCheckTime:
+                changed.append(i)
+
+    if (len(changed)) > 0:
+        print("Folders changed since last music pull:")
+        print(changed)
+
+    # Call os.walk on each of the folders that has changed since last time.
     try:
-        print("Crawling remote...")
-        for root, dirs, files in os.walk(start, topdown=True):
-            # Excluding certain directories from crawling. 
-            # Update 18/05/16: Not sure this does anything.
-            dirs[:] = [d for d in dirs if d not in excludedDirs]
-            for file in files:
-                if file.split(".")[-1] in exts:
-                    output.append( (file, root+"/"+file) )
+        for folder in changed:
+            for root, dirs, files in os.walk(start+"/"+folder, topdown=True):
+                # Excluding certain directories from crawling. 
+                # Update 18/05/16: Not sure this does anything.
+                dirs[:] = [d for d in dirs if d not in excludedDirs]
+                for file in files:
+                    if file.split(".")[-1] in exts:
+                        output.append( (file, root+"/"+file) )
     except KeyboardInterrupt:
         return 0
     except Exception as e:
@@ -149,11 +173,9 @@ def crawl(start, exts, excludedDirs):
 
 # Returns paths of files to add from remote folder to local.
 def comp(list1, list2):
-    print("Comparing against current local music.")
+    print("Comparing against current local music:")
     output = []
     output_names = []
-    #list2_names = [x[0] for x in list2]
-    #print(list2)
     for val in list1:
         if val[0] not in list2:
             if ".AppleDouble" not in val[1]:
@@ -167,47 +189,63 @@ record_output = []
 if(os.path.isfile(record_location)):
     local = get_extensions(record_location, False)
     print("Local record file found with %s items" % str(len(local)))
-    for i in local:
+    # We get the time the record was last written (UNIX epoch time).
+    lastCheckTime = int(local[0])
+    # Re-add previous record lines with new UNIX epoch timestamp.
+    record_output.append(str(int(time()) + timezoneOffset) + "\n")
+    for i in local[1:]:
         record_output.append("%s\n" % i)
 else:
     print("No local record file, copying all music over.")
     local = []
     os.system("""touch "%s" """ % record_location)
+    lastCheckTime = -1
 
 music_exts = get_extensions(ext_fname, True)
 
-
-# Attempting to find the drive having been connected manually.
-start_remote = base_remote + "/iTunes Media/Music"
-remote = crawl(start_remote, music_exts, excludedDirs)
-if remote == -1:
-    print("Couldn't find the remote dir via afp, trying smb.")
-    start_remote = base_remote_smb + "/iTunes Media/Music"
-    remote = crawl(start_remote, music_exts, excludedDirs)
-    if remote == -1:
-        print("Couldn't find remote directory via afp or smb.\nMake sure you have used the browse option in the 'Connect to server' menu.\nAlternatively, mount the music dir via samba.\n")
-        print("Attempting to mount the dir via smb automatically...\n")
-    elif remote == 0:
-        keyboard_interrupt()
-    else:
-        print("Found dir using smb.")
-elif remote == 0:
-    keyboard_interrupt()
-
-# Attempting to connect the drive automatically
+# Varaibles for attempting to mount the drive automatically.
 mountLocation = "/Users/daniel/Desktop/tempMount"
 username = "daniel"
 password = "stratakis5991"
 remoteServerName = "SERVER"
 remoteDirName = "Music"
 
-print("Mounting //%s/%s via smb to %s" % (remoteServerName, remoteDirName, mountLocation))
+# TODO This block is very poor code design, note the terrible triple nested manual call.
+# This shouldn't have so much repeated and poorly extensible code, better abstraction needed.
+print("Attempting to access the remote dir via afp manual mount.")
+start_remote = base_remote + "/iTunes Media/Music"
+remote = crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
+if remote == -1:
+    print("Couldn't find the remote dir via afp, trying smb.")
+    start_remote = base_remote_smb + "/iTunes Media/Music"
+    remote = crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
+    if remote == -1:
+        try:
+            print("Couldn't find the remote dir via afp or smb, trying to mount via smb automatically.")
+            print("Mounting //%s/%s via smb to %s automatically..." % (remoteServerName, remoteDirName, mountLocation))
+            # Note, this snippet doesn't work if the path is given with ~ in it. 
+            # Have to use either an absolute or directory relative path.
+            if not os.path.exists(mountLocation):
+                os.makedirs(mountLocation)
+            mountCommand = "mount_smbfs //%s:%s@%s/%s %s" % (username, password, remoteServerName, remoteDirName, mountLocation)
 
-# Note, this snippet doesn't work if the path is given with ~ in it. Have to
-# user either an absolute or directory relative path.
-if not os.path.exists(mountLocation):
-    os.makedirs(mountLocation)
-mountCommand = "mount_smbfs //%s:%s@%s/%s %s" % (username, password, remoteServerName, remoteDirName, mountLocation)
+            os.system(mountCommand)
+            print("Mounted via smb automatically to " + mountLocation)
+
+            start_remote = mountLocation + "/iTunes Media/Music"
+            remote = crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
+            if remote == 0:
+                keyboard_interrupt()
+        except:
+            print("Couldn't find remote directory via afp or smb, even automatically.\nMake sure you have used the browse option in the 'Connect to server' menu.\n")
+            exit()
+
+    elif remote == 0:
+        keyboard_interrupt()
+    else:
+        print("Found dir using smb.")
+elif remote == 0:
+    keyboard_interrupt()
 
 def unmount():
     umountCommand = "umount %s && rm -R %s" % (mountLocation, mountLocation)
@@ -218,14 +256,6 @@ def keyboard_interrupt():
 	unmount()
 	print("Keyboard interrupt received. Nothing was changed.\nTerminating...")
 	exit(0)
-
-os.system(mountCommand)
-print("Mounted via smb automatically to " + mountLocation)
-
-start_remote = mountLocation + "/iTunes Media/Music"
-remote = crawl(start_remote, music_exts, excludedDirs)
-if remote == 0:
-	keyboard_interrupt()
 
 
 # Isolating the two lists returned from comp. The first are the full paths.
@@ -338,6 +368,7 @@ if confirm2 == "y":
 with open(record_location, "w") as f:
     f.writelines(record_output)
 
+# Copy the record.txt file here as well just incase we lose it.
 os.system("cp '%s' ./" % record_location)
 os.system("rm '%s'" % instructions_fname)
 
