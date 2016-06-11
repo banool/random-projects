@@ -80,7 +80,8 @@ print("Running on", system)
 
 ext_fname = "extensions.txt"
 instructions_fname = "instructions.sh"
-timezoneOffset = 10 * 60 * 60 # Dirty timezone hack for GMT +10.
+#timezoneOffset = 10 * 60 * 60 # Dirty timezone hack for GMT +10.
+timezoneOffset = 0
 
 # TODO this shouldn't be necessary, crawl is starting one dir too high up.
 excludedDirs = ["Album Artwork", "AppleDouble", "DS_Store"]
