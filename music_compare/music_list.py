@@ -83,7 +83,7 @@ instructions_fname = "instructions.sh"
 timezoneOffset = 10 * 60 * 60 # Dirty timezone hack for GMT +10.
 
 # TODO this shouldn't be necessary, crawl is starting one dir too high up.
-excludedDirs = ["Album Artwork", "AppleDouble"]
+excludedDirs = ["Album Artwork", "AppleDouble", "DS_Store"]
 
 # Windows 7 using cygwin
 if system == "CYGWIN_NT-6.1-WOW":
@@ -142,13 +142,11 @@ def crawl(start, exts, excludedDirs, lastCheckTime):
     print("Crawling remote...")
     changed = []
 
-    # Checking that the record isn't freshly made (new).
-    if lastCheckTime > 0:
-        # Recurse through each dir and check if they were made after the
-        # last time we checked the record (UNIX epoch time).
-        for i in os.listdir(start):
-            if int(os.path.getmtime(start+"/"+i)) > lastCheckTime:
-                changed.append(i)
+    # Recurse through each dir and check if they were made after the
+    # last time we checked the record (UNIX epoch time).
+    for i in os.listdir(start):
+        if int(os.path.getmtime(start+"/"+i)) > lastCheckTime and i not in excludedDirs:
+            changed.append(i)
 
     if (len(changed)) > 0:
         print("Folders changed since last music pull:")
@@ -178,7 +176,7 @@ def comp(list1, list2):
     output_names = []
     for val in list1:
         if val[0] not in list2:
-            if ".AppleDouble" not in val[1]:
+            if ".AppleDouble" not in val[1] and "DS_Store" not in val[1]:
                 output.append(val[1])
                 output_names.append(val[0])
     return (output, output_names)
@@ -191,15 +189,18 @@ if(os.path.isfile(record_location)):
     print("Local record file found with %s items" % str(len(local)))
     # We get the time the record was last written (UNIX epoch time).
     lastCheckTime = int(local[0])
-    # Re-add previous record lines with new UNIX epoch timestamp.
-    record_output.append(str(int(time()) + timezoneOffset) + "\n")
-    for i in local[1:]:
-        record_output.append("%s\n" % i)
 else:
+	# If no local record just make local list empty.
+	# We will make a new record when we do write at the end.
     print("No local record file, copying all music over.")
     local = []
-    os.system("""touch "%s" """ % record_location)
-    lastCheckTime = -1
+    # Folders made before epoch will be problematic here/
+    lastCheckTime = 0
+
+# Re-add previous record lines with new (current) UNIX epoch timestamp.
+record_output.append(str(int(time()) + timezoneOffset) + "\n")
+for i in local[1:]:
+    record_output.append("%s\n" % i)
 
 music_exts = get_extensions(ext_fname, True)
 
@@ -291,6 +292,9 @@ counter, since the list is now one item smaller.
 
 if len(diff) == 0 and len(diff_flac) == 0:
     print("There were no differences, exiting.")
+    # Writing record as it was before but with new timestamp.
+    with open(record_location, "w") as f:
+    	f.writelines(record_output)
     unmount()
     exit()
 
@@ -333,6 +337,9 @@ else:
 
 if confirm1 != "y" and confirm2 != "y":
     print("Neither non-flac nor flac/wav options were accepted. Exiting.")
+    # Writing record as it was before but with new timestamp.
+    with open(record_location, "w") as f:
+    	f.writelines(record_output)
     unmount()
     exit()
 
