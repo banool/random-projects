@@ -68,6 +68,15 @@ location are checked to see if they have changed since last we checked and only 
 To support this, the time of last check in UNIX epoch time is put at the top of the record.txt file.
 This change has resulted in an enormous decrease in time spent on disk reads (and minor computation).
 Also cleaned up the logic of crawl() calls a bit, but that code block is still very messy.
+
+Update 02/07/16:
+Big code clean up implemented. The super ugly and unmaintainable nested loop for trying to mount the
+remote drive by the 3 main different methods (smb auto, smb manual, afp manual) was replaced with a
+higher order function which processed the three different methods separately (meaning that each
+method was pulled out into its own function). This function is called mountAndCrawl() and it solves
+a lot of the code duplication that was running rampant in the script beforehand.
+The checks for which OS you were running on and their respective global variables were removed since 
+this script has only ever really worked on OS X Darwin.
 """
 
 import os
@@ -76,7 +85,6 @@ import platform
 from time import ctime, time
 
 system = platform.system()
-print("Running on", system)
 
 ext_fname = "extensions.txt"
 instructions_fname = "instructions.sh"
@@ -86,39 +94,18 @@ timezoneOffset = 0
 # TODO this shouldn't be necessary, crawl is starting one dir too high up.
 excludedDirs = ["Album Artwork", "AppleDouble", "DS_Store"]
 
-# Windows 7 using cygwin
-if system == "CYGWIN_NT-6.1-WOW":
-    print("Running inside Cygwin on Windows")
-    start_local = r"C:\Users\daniel\Music\iTunes\iTunes Media"
-    start_remote = r"\\SERVER\Music Top\iTunesMedia"
-    auto_add_location = r"C:Users\daniel\Music\iTunes\iTunes Media\Automatically Add to iTunes"
-    record_location = r"C:\Users\daniel\Music\iTunes\record.txt"
-    flac_ending = "\\flac_files\\"
-    print("Systems except Darwin don't work well currently, and have been disabled.\nExiting.")
+if system != "Darwin":
+    print("OS must be OSX, terminating...")
     exit()
-# Mac OSX 10.10
-elif system == "Darwin":
-    base_local = "/Users/daniel/Music/iTunes"
-    base_remote = "/Volumes/iTunes_Server"
-    base_remote_smb = "/Volumes/Music"
-    start_local = base_local + "/iTunes Media"
-    # auto_add_location = "/Users/daniel/Music/iTunes/iTunes Media/Automatically Add to iTunes.localized/"
-    auto_add_location = "/Users/daniel/Music/iTunes/iTunes Media/Automatically Add to iTunes/"
-    record_location = "/Users/daniel/Music/iTunes/record.txt"
-    flac_ending = "/flac_files/"
-# Windows in the cmd
-elif system == "Windows":
-    print("CANNY RUN ON WINDOWS.")
-    start_local = "C:\\Users\\daniel\\Music\\iTunes\\iTunes Media"
-    start_remote = "\\\\SERVER\\Music Top\\iTunesMedia"
-    auto_add_location = "C:Users\\daniel\\Music\\iTunes\\iTunes Media\Automatically Add to iTunes"
-    record_location = "C:\\Users\\daniel\\Music\\iTunes\\record.txt"
-    flac_ending = "\\flac_files\\"
-    print("Systems except Darwin don't work well currently, and have been disabled.\nExiting.")
-    exit()
-else:
-    print("OS unrecognised, terminating...")
-    exit()
+
+base_local = "/Users/daniel/Music/iTunes"
+base_remote = "/Volumes/iTunes_Server"
+base_remote_smb = "/Volumes/Music"
+start_local = base_local + "/iTunes Media"
+# auto_add_location = "/Users/daniel/Music/iTunes/iTunes Media/Automatically Add to iTunes.localized/"
+auto_add_location = "/Users/daniel/Music/iTunes/iTunes Media/Automatically Add to iTunes/"
+record_location = "/Users/daniel/Music/iTunes/record.txt"
+flac_ending = "/flac_files/"
 
 def get_extensions(fname, decode_y):
     output = []
@@ -191,8 +178,8 @@ if(os.path.isfile(record_location)):
     # We get the time the record was last written (UNIX epoch time).
     lastCheckTime = int(local[0])
 else:
-	# If no local record just make local list empty.
-	# We will make a new record when we do write at the end.
+    # If no local record just make local list empty.
+    # We will make a new record when we do write at the end.
     print("No local record file, copying all music over.")
     local = []
     # Folders made before epoch will be problematic here/
@@ -205,49 +192,86 @@ for i in local[1:]:
 
 music_exts = get_extensions(ext_fname, True)
 
-# Varaibles for attempting to mount the drive automatically.
+
+# Variables for attempting to mount the drive automatically.
 mountLocation = "/Users/daniel/Desktop/tempMount"
 username = "daniel"
 password = "stratakis5991"
 remoteServerName = "SERVER"
 remoteDirName = "Music"
 
-# TODO This block is very poor code design, note the terrible triple nested manual call.
-# This shouldn't have so much repeated and poorly extensible code, better abstraction needed.
-print("Attempting to access the remote dir via afp manual mount.")
-start_remote = base_remote + "/iTunes Media/Music"
-remote = crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
-if remote == -1:
-    print("Couldn't find the remote dir via afp, trying smb.")
+def mountAutomaticallySMB():
+    """ Tries to mount the remote drive via SMB itself before crawling it """
+
+    start_remote = mountLocation + "/iTunes Media/Music"
+
+    print("Trying to mount automatically via SMB.")
+    try:
+        # Note, this snippet doesn't work if the path is given with ~ in it. 
+        # Have to use either an absolute or directory relative path.
+        if not os.path.exists(mountLocation):
+            os.makedirs(mountLocation)
+        mountCommand = "mount_smbfs //%s:%s@%s/%s %s" % (username, password, remoteServerName, remoteDirName, mountLocation)
+
+        os.system(mountCommand)
+        print("Mounted via smb automatically to " + mountLocation)
+
+        return crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
+
+    except:
+        return -1
+
+def mountManuallySMB():
+    """ Tries to crawl a remote drive which was already manually mounted via SMB """
     start_remote = base_remote_smb + "/iTunes Media/Music"
-    remote = crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
-    if remote == -1:
-        try:
-            print("Couldn't find the remote dir via afp or smb, trying to mount via smb automatically.")
-            print("Mounting //%s/%s via smb to %s automatically..." % (remoteServerName, remoteDirName, mountLocation))
-            # Note, this snippet doesn't work if the path is given with ~ in it. 
-            # Have to use either an absolute or directory relative path.
-            if not os.path.exists(mountLocation):
-                os.makedirs(mountLocation)
-            mountCommand = "mount_smbfs //%s:%s@%s/%s %s" % (username, password, remoteServerName, remoteDirName, mountLocation)
 
-            os.system(mountCommand)
-            print("Mounted via smb automatically to " + mountLocation)
+    print("Trying to access the remote drive via manual SMB mount.")
 
-            start_remote = mountLocation + "/iTunes Media/Music"
-            remote = crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
-            if remote == 0:
-                keyboard_interrupt()
-        except:
-            print("Couldn't find remote directory via afp or smb, even automatically.\nMake sure you have used the browse option in the 'Connect to server' menu.\n")
-            exit()
+    return crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
 
-    elif remote == 0:
-        keyboard_interrupt()
-    else:
-        print("Found dir using smb.")
-elif remote == 0:
-    keyboard_interrupt()
+def mountManuallyAFP():
+    """ Tries to crawl a remote drive which was already manually mounted via SMB """
+    start_remote = base_remote + "/iTunes Media/Music"
+
+    print("Trying to access the remote drive via manual AFP mount.")
+
+    return crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
+
+
+# This takes a bunch of functions and tries them one by one until the remote drive is
+# mounted successfully.
+def mountAndCrawl(*funcs):
+    result = 0
+    i = 0
+    # The functions will return a list on success, or a number indicating what
+    # went wrong in the event of an error / interruption.
+    while type(result) is int:
+        result = funcs[i]()
+
+        # If result is 0 we received ctrl+C, which we handle gracefully and exit.
+        # If not 0 it must have been -1 which means it didn't work, so we move on to the next function.
+        if result == 0:
+            keyboard_interrupt()
+
+        i += 1
+        if i == len(funcs):
+            break
+
+    # This only triggers after trying all functions unsuccessfully.
+    if type(result) is int:
+        return -1
+
+    # Should be a list in the event of success.
+    print("Success!")
+    return result
+
+remote = mountAndCrawl(mountAutomaticallySMB, mountManuallySMB, mountManuallyAFP)
+# Checking that the remote drive was successfully mounted and crawled.
+if remote == -1:
+    print("None of the methods were successful in mounting and crawling the remote drive.")
+    print("Exiting...")
+    exit()
+
 
 def unmount():
     umountCommand = "umount %s && rm -R %s" % (mountLocation, mountLocation)
@@ -255,9 +279,9 @@ def unmount():
     print("Unmounted the remote drive.")
 
 def keyboard_interrupt():
-	unmount()
-	print("Keyboard interrupt received. Nothing was changed.\nTerminating...")
-	exit(0)
+    unmount()
+    print("Keyboard interrupt received. Nothing was changed.\nTerminating...")
+    exit(0)
 
 
 # Isolating the two lists returned from comp. The first are the full paths.
@@ -284,18 +308,18 @@ while counter < end:
         end -= 1
     else:
         counter += 1
-"""
-Note: We only incrememnt the counter when we don't pop. Because pop returns
-the item at the given index AND deletes it, if we increase the counter after
-popping we will skip a value. When we DO pop we decrease the required end
-counter, since the list is now one item smaller.
-"""
+        """
+        Note: We only incrememnt the counter when we don't pop. Because pop returns
+        the item at the given index AND deletes it, if we increase the counter after
+        popping we will skip a value. When we DO pop we decrease the required end
+        counter, since the list is now one item smaller.
+        """
 
 if len(diff) == 0 and len(diff_flac) == 0:
     print("There were no differences, exiting.")
     # Writing record as it was before but with new timestamp.
     with open(record_location, "w") as f:
-    	f.writelines(record_output)
+        f.writelines(record_output)
     unmount()
     exit()
 
@@ -310,7 +334,7 @@ if(len(diff) > 0):
         print("Ok, not adding non_flac files. Moving on to check .flac files...")
 
 # We create an .sh file to do the copying so the shell can do it.
-# Faster than letting python do it.
+# Probably more reliable than letting python do it.
 print("Creating %s file..." % instructions_fname)
 
 instructions = []
@@ -340,7 +364,7 @@ if confirm1 != "y" and confirm2 != "y":
     print("Neither non-flac nor flac/wav options were accepted. Exiting.")
     # Writing record as it was before but with new timestamp.
     with open(record_location, "w") as f:
-    	f.writelines(record_output)
+        f.writelines(record_output)
     unmount()
     exit()
 
@@ -379,17 +403,6 @@ with open(record_location, "w") as f:
 # Copy the record.txt file here as well just incase we lose it.
 os.system("cp '%s' ./" % record_location)
 os.system("rm '%s'" % instructions_fname)
-
-"""
-# Copying the library file .xml to the remote location
-local_lib = base_local + "/" + "iTunes Music Library.xml"
-remote_lib = base_remote + "/" + "iTunes Music Library.xml"
-os.system("cp '%s' '%s'" % (local_lib, remote_lib))
-# Doing it for the .itl file. Not sure this is necessary tho.
-local_lib = base_local + "/" + "iTunes Library.itl"
-remote_lib = base_remote + "/" + "iTunes Library.itl"
-os.system("cp '%s' '%s'" % (local_lib, remote_lib))
-"""
 
 unmount()
 
