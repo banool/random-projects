@@ -1,0 +1,26 @@
+# Expect this format:
+# CODE12345, Name, Semester, Year, Grade
+
+# START POTENTIAL
+COMP30019 Graphics and Interactions 2
+# END POTENTIAL
+
+# START COMPLETED
+2016 Semester 1  COMP30023 Computer Systems 1 88  H1 First Class Honours 12.500 
+2016 Semester 1  GEOM20013 Applications of GIS 2 75  H2A Second Class Hons A 12.500 
+2015 Semester 2  INFO20003 Database Systems 1 75  H2A Second Class Hons A 12.500 
+2015 Semester 2  SPAN30015 Spanish 6 2 82  H1 First Class Honours 12.500 
+2015 Semester 2  SWEN20003 Object Oriented Software Development 2 82  H1 First Class Honours 12.500 
+2015 Semester 1  COMP20007 Design of Algorithms 1 64  P Pass 12.500 
+2015 Semester 1  MAST10005 Calculus 1 1 56  P Pass 12.500 
+2015 Semester 1  PHYC10001 Physics 1: Advanced 1 59  P Pass 12.500 
+2015 Semester 1  SPAN20018 Spanish 5 2 80  H1 First Class Honours 12.500 
+2014 Semester 2  COMP10002 Foundations of Algorithms 1 67  H3 Third Class Honours 12.500 
+2014 Semester 2  MAST10005 Calculus 1 1 28  N Fail 12.500 
+2014 Semester 2  MAST10010 Data Analysis 1 1 51  P Pass 12.500 
+2014 Semester 2  SPAN20003 Spanish 4 2 85  H1 First Class Honours 12.500 
+2016	Semester 1	SPAN30013	Don Quijote Against the Universe	2	80	H1	First Class Honours	12.500
+2014	Semester 1	COMP10001	Foundations of Computing	1	81	H1	First Class Honours	12.500
+2014	Semester 1	MUSI10159	Choir 1	1		CMP	Completed	12.500
+2014	Semester 1	SPAN10003	Spanish 3	2	78	H2A	Second Class Hons A	12.500
+# END COMPLETED
