@@ -77,6 +77,15 @@ method was pulled out into its own function). This function is called mountAndCr
 a lot of the code duplication that was running rampant in the script beforehand.
 The checks for which OS you were running on and their respective global variables were removed since 
 this script has only ever really worked on OS X Darwin.
+
+Update 26/07/16:
+Noticed some undesirable behaviour. When the script found items but the user chose not to do
+anything with them, on the next execution of the script those items were ignored because of
+the updated timestamp. This could indeed be what the user wants, having decided that they don't
+want those items. However, it might not be. As such, in the case that no items were selected to
+be transferred, the script will ask if they want to update the timestamp. Perhaps this should
+be implemented for any time the timestamp is updated, but I think this is the most outstanding
+case to sort out. See NOTE1 below for the relevant code snippet.
 """
 
 import os
@@ -138,7 +147,8 @@ def crawl(start, exts, excludedDirs, lastCheckTime):
 
     if (len(changed)) > 0:
         print("Folders changed since last music pull:")
-        print(changed)
+        for folder in changed:
+            print("  " + folder)
 
     # Call os.walk on each of the folders that has changed since last time.
     try:
@@ -363,8 +373,22 @@ else:
 if confirm1 != "y" and confirm2 != "y":
     print("Neither non-flac nor flac/wav options were accepted. Exiting.")
     # Writing record as it was before but with new timestamp.
-    with open(record_location, "w") as f:
-        f.writelines(record_output)
+    #
+    # NOTE1, interesting trade off here.
+    # If you write the timestamp here, it lets the script know that you've checked up to this point.
+    # This is good if nothing was found as it will scan for folders in a smaller time window next time.
+    # However if something was found but then not added, the next time the script is run it will
+    # not pick up those items, meaning the user has to manually change the timestamp to an earlier time.
+    #
+    # As such, in this situation the script will now ask the user if they want to update the timestamp.
+    timestampConf = "xxx"
+    while timestampConf != "y" and timestampConf != "n":
+        timestampConf = input("Would you like to update the timestamp in the record file? ")[0].lower()
+
+    if timestampConf == "y":
+        with open(record_location, "w") as f:
+            f.writelines(record_output)
+    
     unmount()
     exit()
 
