@@ -86,9 +86,18 @@ want those items. However, it might not be. As such, in the case that no items w
 be transferred, the script will ask if they want to update the timestamp. Perhaps this should
 be implemented for any time the timestamp is updated, but I think this is the most outstanding
 case to sort out. See NOTE1 below for the relevant code snippet.
+
+Update 28/07/16:
+Added a method which tries to mount the remote drive via SSH automatically. I was encouraged to do
+this after SMB didn't work following restoring the server. It turns out that I needed to do this
+for the account that I wanted to access the samba share as to give it a password:
+smbpasswd -a daniel
+While not a big deal, it indeed highlights how SSH is just that much more reliable.
+Also moved my password from this source code into an environmental variable. A bit remiss now I know.
 """
 
 import os
+from subprocess import call
 from sys import exit
 import platform
 from time import ctime, time
@@ -97,11 +106,11 @@ system = platform.system()
 
 ext_fname = "extensions.txt"
 instructions_fname = "instructions.sh"
-#timezoneOffset = 10 * 60 * 60 # Dirty timezone hack for GMT +10.
+#timezoneOffset = 10 * 60 * 60 # Dirty timezone hack for GMT +10. Update: Not actually necessary.
 timezoneOffset = 0
 
 # TODO this shouldn't be necessary, crawl is starting one dir too high up.
-excludedDirs = ["Album Artwork", "AppleDouble", "DS_Store"]
+excludedDirs = ["Album Artwork", "AppleDouble", "DS_Store", ".AppleDouble", ".DS_Store"]
 
 if system != "Darwin":
     print("OS must be OSX, terminating...")
@@ -115,6 +124,10 @@ start_local = base_local + "/iTunes Media"
 auto_add_location = "/Users/daniel/Music/iTunes/iTunes Media/Automatically Add to iTunes/"
 record_location = "/Users/daniel/Music/iTunes/record.txt"
 flac_ending = "/flac_files/"
+
+
+
+
 
 def get_extensions(fname, decode_y):
     output = []
@@ -203,33 +216,59 @@ for i in local[1:]:
 music_exts = get_extensions(ext_fname, True)
 
 
-# Variables for attempting to mount the drive automatically.
-mountLocation = "/Users/daniel/Desktop/tempMount"
-username = "daniel"
-password = "stratakis5991"
-remoteServerName = "SERVER"
-remoteDirName = "Music"
 
+
+
+# Variables for attempting to mount the drive automatically.
+mountLocation = "/Users/daniel/Desktop/tempmount"
+username = "delugeuser"
+password = os.environ["SMBPWORD"]
+remoteServerName = "server"
+remoteDirName = "Music"
+remoteServerSSH = "192.168.1.2"
+remoteDirSSH = "/media/hddroot/music"
+
+def mountAutomaticallySSH():
+    """ Tries to mount vis SSH automatically. """
+    """ Should only ask for password if key based auth fails. """
+
+    start_remote = mountLocation + "/iTunes Media/Music"
+
+    print("Trying to mount automatically via SSH.")
+    if not os.path.exists(mountLocation):
+        os.makedirs(mountLocation)
+
+    mountCommand = "sshfs -p 25566 %s@%s:%s %s" % (username, remoteServerSSH, remoteDirSSH, mountLocation)
+    
+    status = call(mountCommand, shell=True)
+    if status != 0:
+        return -1
+
+    print("Mounted via SSH automatically to " + mountLocation)
+
+    return crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
+
+# Moved this down one in the chain. Will try using ssh first now.
 def mountAutomaticallySMB():
-    """ Tries to mount the remote drive via SMB itself before crawling it """
+    """ Tries to mount the remote drive via SMB itself before crawling it. """
 
     start_remote = mountLocation + "/iTunes Media/Music"
 
     print("Trying to mount automatically via SMB.")
-    try:
-        # Note, this snippet doesn't work if the path is given with ~ in it. 
-        # Have to use either an absolute or directory relative path.
-        if not os.path.exists(mountLocation):
-            os.makedirs(mountLocation)
-        mountCommand = "mount_smbfs //%s:%s@%s/%s %s" % (username, password, remoteServerName, remoteDirName, mountLocation)
+    # Note, this snippet doesn't work if the path is given with ~ in it. 
+    # Have to use either an absolute or directory relative path.
+    if not os.path.exists(mountLocation):
+        os.makedirs(mountLocation)
 
-        os.system(mountCommand)
-        print("Mounted via smb automatically to " + mountLocation)
+    mountCommand = "mount_smbfs //%s:%s@%s/%s %s" % (username, password, remoteServerName, remoteDirName, mountLocation)
 
-        return crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
-
-    except:
+    status = call(mountCommand, shell=True)
+    if status != 0:
         return -1
+
+    print("Mounted via SMB automatically to " + mountLocation)
+
+    return crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
 
 def mountManuallySMB():
     """ Tries to crawl a remote drive which was already manually mounted via SMB """
@@ -237,7 +276,15 @@ def mountManuallySMB():
 
     print("Trying to access the remote drive via manual SMB mount.")
 
-    return crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
+    ret = crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
+    if ret == -1:
+        # Deals with the rare case that the remote dir was already mounted by this script
+        # but was then aborted (and is hence not under /Volumes) but also not unmounted.
+        # This shouldn't ever really trigger.
+        start_remote = mountLocation
+        return crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
+    else:
+        return ret
 
 def mountManuallyAFP():
     """ Tries to crawl a remote drive which was already manually mounted via SMB """
@@ -246,6 +293,9 @@ def mountManuallyAFP():
     print("Trying to access the remote drive via manual AFP mount.")
 
     return crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
+
+
+
 
 
 # This takes a bunch of functions and tries them one by one until the remote drive is
@@ -275,12 +325,18 @@ def mountAndCrawl(*funcs):
     print("Success!")
     return result
 
-remote = mountAndCrawl(mountAutomaticallySMB, mountManuallySMB, mountManuallyAFP)
+
+mountingFunctions = [mountAutomaticallySSH, mountAutomaticallySMB, mountManuallySMB, mountManuallyAFP]
+remote = mountAndCrawl(*mountingFunctions)
 # Checking that the remote drive was successfully mounted and crawled.
 if remote == -1:
     print("None of the methods were successful in mounting and crawling the remote drive.")
     print("Exiting...")
     exit()
+
+
+
+
 
 
 def unmount():
