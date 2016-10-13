@@ -94,6 +94,14 @@ for the account that I wanted to access the samba share as to give it a password
 smbpasswd -a daniel
 While not a big deal, it indeed highlights how SSH is just that much more reliable.
 Also moved my password from this source code into an environmental variable. A bit remiss now I know.
+
+Update 13/10/16:
+Upon running into the "rare case" (ctrl+F for it), I found that when using the automatic SMB mount
+function, and then cancelling before fully finishing execution, it wasn't properly unmounting the drive
+This lead me to look for a different way to handle the interruption, so now a global signal handler has
+been implemented. This removes the need to check throughout the code, and should work well, except for
+maybe very early in the script when the mount location hasn't yet been defined.
+For context, this has become necessary because the automatic SSH mount is broken in macOS Sierra.
 """
 
 import os
@@ -101,6 +109,21 @@ from subprocess import call
 from sys import exit
 import platform
 from time import ctime, time
+import signal # So we can catch ctrl + C globally
+
+def unmount():
+    umountCommand = "umount %s && rm -R %s" % (mountLocation, mountLocation)
+    os.system(umountCommand)
+    print("Unmounted the remote drive.")
+
+def keyboard_interrupt(signal, frame):
+    print()
+    unmount()
+    print("Keyboard interrupt received. Nothing was changed.\nTerminating...")
+    exit(0)
+
+# Telling the program to run the keyboard_interrupt() function upon receiving ctrl+C (SIGINT).
+signal.signal(signal.SIGINT, keyboard_interrupt)
 
 system = platform.system()
 
@@ -173,8 +196,6 @@ def crawl(start, exts, excludedDirs, lastCheckTime):
                 for file in files:
                     if file.split(".")[-1] in exts:
                         output.append( (file, root+"/"+file) )
-    except KeyboardInterrupt:
-        return 0
     except Exception as e:
         print("Unexpected error: %s" % str(e))
         return -1
@@ -278,6 +299,7 @@ def mountManuallySMB():
 
     ret = crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
     if ret == -1:
+        print("rare case")
         # Deals with the rare case that the remote dir was already mounted by this script
         # but was then aborted (and is hence not under /Volumes) but also not unmounted.
         # This shouldn't ever really trigger.
@@ -307,11 +329,8 @@ def mountAndCrawl(*funcs):
     # went wrong in the event of an error / interruption.
     while type(result) is int:
         result = funcs[i]()
-
-        # If result is 0 we received ctrl+C, which we handle gracefully and exit.
-        # If not 0 it must have been -1 which means it didn't work, so we move on to the next function.
-        if result == 0:
-            keyboard_interrupt()
+        if type(result) is int:
+            print("Failure, trying next mounting method...")
 
         i += 1
         if i == len(funcs):
@@ -333,21 +352,6 @@ if remote == -1:
     print("None of the methods were successful in mounting and crawling the remote drive.")
     print("Exiting...")
     exit()
-
-
-
-
-
-
-def unmount():
-    umountCommand = "umount %s && rm -R %s" % (mountLocation, mountLocation)
-    os.system(umountCommand)
-    print("Unmounted the remote drive.")
-
-def keyboard_interrupt():
-    unmount()
-    print("Keyboard interrupt received. Nothing was changed.\nTerminating...")
-    exit(0)
 
 
 # Isolating the two lists returned from comp. The first are the full paths.
