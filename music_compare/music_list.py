@@ -1,6 +1,19 @@
 #!/usr/local/bin/python3
 
 """
+This script exists because iTunes does all kinds of nonsense with files when
+they are added automatically into iTunes. As such, it is not feasible to
+check which files exist on each end each time I want to copy music across
+from the server. To get around this, a manual record of which files have
+been copied across is maintained, which has gradually improved over time.
+The automatically adding to iTunes has its advantages however. Even if single
+files are dumped into the Automatically Add to iTunes folder, if you have the
+option enabled iTunes will organise them by Artist -> Album. Very handy.
+
+See the changelog on Github and below to know what has been added over time
+to this script and why. Perhaps feature creep, but really many of these changes
+have been beneficial to the maintenance of this code, not detrimental.
+
 Note two main limitations of this script.
 1. It doesn't handle non UTF-8 characters, such as if ke$ha was in the path.
 2. .flac files are not handled uniquely, despite iTunes not accepting them.
@@ -58,50 +71,69 @@ mounted by the user using afp or smb.
 Credit: http://stackoverflow.com/questions/21590361/mount-windows-smb-shares-on-a-mac-using-python
 
 Update 10/05/16:
-Adds .wav files to the flac_files folder since iTunes can't handle their metadata properly either.
-The are probably other file formats which should also be handled separately.
-A more extensible approach might be to have two lists, one for supported and one for not.
+Adds .wav files to the flac_files folder since iTunes can't handle their 
+metadata properly either. The are probably other file formats which should also 
+be handled separately. A more extensible approach might be to have two lists, 
+one for supported and one for not.
 
 Update 10/06/16:
-Significant performance improvement implemented. In crawl(), each of the folders in the base start
-location are checked to see if they have changed since last we checked and only these are crawled.
-To support this, the time of last check in UNIX epoch time is put at the top of the record.txt file.
-This change has resulted in an enormous decrease in time spent on disk reads (and minor computation).
-Also cleaned up the logic of crawl() calls a bit, but that code block is still very messy.
+Significant performance improvement implemented. In crawl(), each of the folders 
+in the base startlocation are checked to see if they have changed since last we 
+checked and only these are crawled. To support this, the time of last check in
+UNIX epoch time is put at the top of the record.txt file. This change has 
+resulted in an enormous decrease in time spent on disk reads (and minor 
+computation). Also cleaned up the logic of crawl() calls a bit, but that code 
+block is still very messy.
 
 Update 02/07/16:
-Big code clean up implemented. The super ugly and unmaintainable nested loop for trying to mount the
-remote drive by the 3 main different methods (smb auto, smb manual, afp manual) was replaced with a
-higher order function which processed the three different methods separately (meaning that each
-method was pulled out into its own function). This function is called mountAndCrawl() and it solves
+Big code clean up implemented. The super ugly and unmaintainable nested loop for
+trying to mount the remote drive by the 3 main different methods (smb auto, smb 
+manual, afp manual) was replaced with a higher order function which processed 
+the three different methods separately (meaning that each method was pulled out
+into its own function). This function is called mountAndCrawl() and it solves
 a lot of the code duplication that was running rampant in the script beforehand.
-The checks for which OS you were running on and their respective global variables were removed since 
-this script has only ever really worked on OS X Darwin.
+The checks for which OS you were running on and their respective global
+variables were removed since this script has only ever really worked on OS X /
+macOS Darwin.
 
 Update 26/07/16:
-Noticed some undesirable behaviour. When the script found items but the user chose not to do
-anything with them, on the next execution of the script those items were ignored because of
-the updated timestamp. This could indeed be what the user wants, having decided that they don't
-want those items. However, it might not be. As such, in the case that no items were selected to
-be transferred, the script will ask if they want to update the timestamp. Perhaps this should
-be implemented for any time the timestamp is updated, but I think this is the most outstanding
-case to sort out. See NOTE1 below for the relevant code snippet.
+Noticed some undesirable behaviour. When the script found items but the user 
+chose not to do anything with them, on the next execution of the script those 
+items were ignored because of the updated timestamp. This could indeed be what 
+the user wants, having decided that they don't want those items. However, it 
+might not be. As such, in the case that no items were selected to be 
+transferred, the script will ask if they want to update the timestamp. Perhaps 
+this should be implemented for any time the timestamp is updated, but I think 
+this is the most outstanding case to sort out. See NOTE1 below for the relevant 
+code snippet.
 
 Update 28/07/16:
-Added a method which tries to mount the remote drive via SSH automatically. I was encouraged to do
-this after SMB didn't work following restoring the server. It turns out that I needed to do this
-for the account that I wanted to access the samba share as to give it a password:
-smbpasswd -a daniel
-While not a big deal, it indeed highlights how SSH is just that much more reliable.
-Also moved my password from this source code into an environmental variable. A bit remiss now I know.
+Added a method which tries to mount the remote drive via SSH automatically. 
+I was encouraged to do this after SMB didn't work following restoring the 
+server. It turns out that I needed to do this for the account that I wanted to 
+access the samba share as to give it a password: smbpasswd -a daniel
+While not a big deal, it indeed highlights how SSH is just that much more 
+reliable. Also moved my password from this source code into an environmental 
+variable. A bit remiss now I know.
 
 Update 13/10/16:
-Upon running into the "rare case" (ctrl+F for it), I found that when using the automatic SMB mount
-function, and then cancelling before fully finishing execution, it wasn't properly unmounting the drive
-This lead me to look for a different way to handle the interruption, so now a global signal handler has
-been implemented. This removes the need to check throughout the code, and should work well, except for
-maybe very early in the script when the mount location hasn't yet been defined.
-For context, this has become necessary because the automatic SSH mount is broken in macOS Sierra.
+Upon running into the "rare case" (ctrl+F for it), I found that when using the 
+automatic SMB mount function, and then cancelling before fully finishing 
+execution, it wasn't properly unmounting the drive This lead me to look for a 
+different way to handle the interruption, so now a global signal handler has
+been implemented. This removes the need to check throughout the code, and should 
+work well, except for maybe very early in the script when the mount location 
+hasn't yet been defined. For context, this has become necessary because the 
+automatic SSH mount is broken in macOS Sierra.
+
+Update 28/10/16:
+The script can now automatically convert flac and wav files using this library:
+https://github.com/jiaaro/pydub
+It will convert them to mp3, add them to the Automatically Add to iTunes folder
+and delete the original flac files (locally, not remotely of course).
+Considering that this adds another yes/no question, I've added a check at the
+start to see if you just want to say yes to everything. The same effect could be 
+reached by just piping yes into this script, but this is still nice.
 """
 
 import os
@@ -110,6 +142,17 @@ from sys import exit
 import platform
 from time import ctime, time
 import signal # So we can catch ctrl + C globally
+from pydub import AudioSegment
+from pydub.utils import mediainfo
+
+mp3Bitrate = "320k"
+
+print()
+yesToAllConf = input("Say yes to everything? ")[0].lower()
+yesToAll = False
+if yesToAllConf == "y":
+    yesToAll = True
+print()
 
 def unmount():
     umountCommand = "umount %s && rm -R %s" % (mountLocation, mountLocation)
@@ -122,18 +165,21 @@ def keyboard_interrupt(signal, frame):
     print("Keyboard interrupt received. Nothing was changed.\nTerminating...")
     exit(0)
 
-# Telling the program to run the keyboard_interrupt() function upon receiving ctrl+C (SIGINT).
+# Telling the program to run the keyboard_interrupt() function upon 
+# receiving ctrl+C (SIGINT).
 signal.signal(signal.SIGINT, keyboard_interrupt)
 
 system = platform.system()
 
 ext_fname = "extensions.txt"
 instructions_fname = "instructions.sh"
-#timezoneOffset = 10 * 60 * 60 # Dirty timezone hack for GMT +10. Update: Not actually necessary.
+#timezoneOffset = 10 * 60 * 60 # Dirty timezone hack for GMT +10. 
+# Update: Not actually necessary.
 timezoneOffset = 0
 
 # TODO this shouldn't be necessary, crawl is starting one dir too high up.
-excludedDirs = ["Album Artwork", "AppleDouble", "DS_Store", ".AppleDouble", ".DS_Store"]
+excludedDirs = ["Album Artwork", "AppleDouble", "DS_Store", ".AppleDouble", 
+    ".DS_Store"]
 
 if system != "Darwin":
     print("OS must be OSX, terminating...")
@@ -143,7 +189,6 @@ base_local = "/Users/daniel/Music/iTunes"
 base_remote = "/Volumes/iTunes_Server"
 base_remote_smb = "/Volumes/Music"
 start_local = base_local + "/iTunes Media"
-# auto_add_location = "/Users/daniel/Music/iTunes/iTunes Media/Automatically Add to iTunes.localized/"
 auto_add_location = "/Users/daniel/Music/iTunes/iTunes Media/Automatically Add to iTunes/"
 record_location = "/Users/daniel/Music/iTunes/record.txt"
 flac_ending = "/flac_files/"
@@ -250,16 +295,18 @@ remoteServerSSH = "192.168.1.2"
 remoteDirSSH = "/media/hddroot/music"
 
 def mountAutomaticallySSH():
-    """ Tries to mount vis SSH automatically. """
-    """ Should only ask for password if key based auth fails. """
-
+    """ 
+    Tries to mount vis SSH automatically.
+    Should only ask for password if key based auth fails.
+    """
     start_remote = mountLocation + "/iTunes Media/Music"
 
     print("Trying to mount automatically via SSH.")
     if not os.path.exists(mountLocation):
         os.makedirs(mountLocation)
 
-    mountCommand = "sshfs -p 25566 %s@%s:%s %s" % (username, remoteServerSSH, remoteDirSSH, mountLocation)
+    args = (username, remoteServerSSH, remoteDirSSH, mountLocation)
+    mountCommand = "sshfs -p 25566 %s@%s:%s %s" % args
     
     status = call(mountCommand, shell=True)
     if status != 0:
@@ -271,8 +318,9 @@ def mountAutomaticallySSH():
 
 # Moved this down one in the chain. Will try using ssh first now.
 def mountAutomaticallySMB():
-    """ Tries to mount the remote drive via SMB itself before crawling it. """
-
+    """
+    Tries to mount the remote drive via SMB itself before crawling it.
+    """
     start_remote = mountLocation + "/iTunes Media/Music"
 
     print("Trying to mount automatically via SMB.")
@@ -281,7 +329,8 @@ def mountAutomaticallySMB():
     if not os.path.exists(mountLocation):
         os.makedirs(mountLocation)
 
-    mountCommand = "mount_smbfs //%s:%s@%s/%s %s" % (username, password, remoteServerName, remoteDirName, mountLocation)
+    args = (username, password, remoteServerName, remoteDirName, mountLocation)
+    mountCommand = "mount_smbfs //%s:%s@%s/%s %s" % args
 
     status = call(mountCommand, shell=True)
     if status != 0:
@@ -292,7 +341,9 @@ def mountAutomaticallySMB():
     return crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
 
 def mountManuallySMB():
-    """ Tries to crawl a remote drive which was already manually mounted via SMB """
+    """ 
+    Tries to crawl a remote drive which was already manually mounted via SMB.
+    """
     start_remote = base_remote_smb + "/iTunes Media/Music"
 
     print("Trying to access the remote drive via manual SMB mount.")
@@ -309,7 +360,9 @@ def mountManuallySMB():
         return ret
 
 def mountManuallyAFP():
-    """ Tries to crawl a remote drive which was already manually mounted via SMB """
+    """
+    Tries to crawl a remote drive which was already manually mounted via SMB.
+    """
     start_remote = base_remote + "/iTunes Media/Music"
 
     print("Trying to access the remote drive via manual AFP mount.")
@@ -320,8 +373,8 @@ def mountManuallyAFP():
 
 
 
-# This takes a bunch of functions and tries them one by one until the remote drive is
-# mounted successfully.
+# This takes a bunch of functions and tries them one by one until the remote 
+# drive is mounted successfully.
 def mountAndCrawl(*funcs):
     result = 0
     i = 0
@@ -379,10 +432,10 @@ while counter < end:
     else:
         counter += 1
         """
-        Note: We only incrememnt the counter when we don't pop. Because pop returns
-        the item at the given index AND deletes it, if we increase the counter after
-        popping we will skip a value. When we DO pop we decrease the required end
-        counter, since the list is now one item smaller.
+        Note: We only incrememnt the counter when we don't pop. Because pop 
+        returns the item at the given index AND deletes it, if we increase the 
+        counter after popping we will skip a value. When we DO pop we decrease 
+        the required end counter, since the list is now one item smaller.
         """
 
 if len(diff) == 0 and len(diff_flac) == 0:
@@ -399,9 +452,12 @@ if(len(diff) > 0):
         print(i)
     print("\n")
     print("%s non_flac files were found in the remote server, but not locally." % str(len(diff)))
-    confirm1 = input("Would you like to add them? ")[0].lower()
-    if confirm1 != "y":
-        print("Ok, not adding non_flac files. Moving on to check .flac files...")
+    if yesToAll:
+        confirm1 = "y"
+    else:
+        confirm1 = input("Would you like to add them? ")[0].lower()
+        if confirm1 != "y":
+            print("Ok, not adding non_flac files. Moving on to check .flac files...")
 
 # We create an .sh file to do the copying so the shell can do it.
 # Probably more reliable than letting python do it.
@@ -412,14 +468,18 @@ for i in diff:
     instructions.append("""cp "%s" "%s"\n""" % (i, auto_add_location))
 
 """
-Checking if we want to move the .flac files to a seperate folder or just have them ignored.
+Checking if we want to copy the .flac files to a seperate folder or just have 
+them ignored.
 """
 confirm2 = "n"
 if len(diff_flac) > 0:
     for i in diff_flac_clean:
         print(i)
     print("\n")
-    confirm2 = input("There were %s .flac or .wav files found.\nWould you like to add them to %s? " % ((str(len(diff_flac)), base_local + flac_ending)))[0].lower()
+    if yesToAll:
+        confirm2 = "y"
+    else:
+        confirm2 = input("There were %s .flac or .wav files found.\nWould you like to add them to %s? " % ((str(len(diff_flac)), base_local + flac_ending)))[0].lower()
     if confirm2 != "y":
         print("Ok, ignoring .flac and .wav files.")
     else:
@@ -432,18 +492,26 @@ else:
 
 if confirm1 != "y" and confirm2 != "y":
     print("Neither non-flac nor flac/wav options were accepted. Exiting.")
-    # Writing record as it was before but with new timestamp.
-    #
-    # NOTE1, interesting trade off here.
-    # If you write the timestamp here, it lets the script know that you've checked up to this point.
-    # This is good if nothing was found as it will scan for folders in a smaller time window next time.
-    # However if something was found but then not added, the next time the script is run it will
-    # not pick up those items, meaning the user has to manually change the timestamp to an earlier time.
-    #
-    # As such, in this situation the script will now ask the user if they want to update the timestamp.
+    """
+    Writing record as it was before but with new timestamp.
+    
+    NOTE1, interesting trade off here.
+    If you write the timestamp here, it lets the script know that you've 
+    checked up to this point. This is good if nothing was found as it will 
+    scan for folders in a smaller time window next time. However if something
+    was found but then not added, the next time the script is run it will
+    not pick up those items, meaning the user has to manually change the 
+    timestamp to an earlier time.
+    
+    As such, in this situation the script will now ask the user if they want 
+    to update the timestamp.
+    """
     timestampConf = "xxx"
-    while timestampConf != "y" and timestampConf != "n":
-        timestampConf = input("Would you like to update the timestamp in the record file? ")[0].lower()
+    if yesToAll:
+        timestampConf == "y"
+    else:
+        while timestampConf != "y" and timestampConf != "n":
+            timestampConf = input("Would you like to update the timestamp in the record file? ")[0].lower()
 
     if timestampConf == "y":
         with open(record_location, "w") as f:
@@ -459,7 +527,10 @@ print("Would you like to execute %s now? Options:" % instructions_fname)
 print("y - Yes, run %s and copy the files over"  % instructions_fname)
 print("n - No, don't run %s and do nothing" % instructions_fname)
 print("r - Don't run %s, but add the files to record.txt" % (instructions_fname))
-confirm = input("Select an option >> ")[0].lower()
+if yesToAll:
+    confirm = "y"
+else:
+    confirm = input("Select an option >> ")[0].lower()
 
 # Exit and do nothing
 if confirm == "n":
@@ -484,10 +555,45 @@ if confirm2 == "y":
 with open(record_location, "w") as f:
     f.writelines(record_output)
 
+
 # Copy the record.txt file here as well just incase we lose it.
 os.system("cp '%s' ./" % record_location)
 os.system("rm '%s'" % instructions_fname)
 
 unmount()
+
+# Converting flac / wav files to mp3.
+confirm3 = "n"
+if confirm2 == "y":
+    if yesToAll:
+        confirm3 = "y"
+    else:
+        confirm3 = input("Would you like to convert flac / wav files to mp3 and add them automatically? ")[0].lower()
+
+#def getMetadata()
+
+if confirm3 == "y":
+    print("Converting flac / wav files to mp3")
+    path = base_local + flac_ending
+    files = []
+    for i in os.listdir(path):
+        ext = i.split(".")[-1]
+        if ext == "flac":
+            files.append((i, "flac"))
+        if ext == "wav":
+            files.append((i, "wav"))
+
+    newExt = "mp3"
+
+    for i in files:
+        print("Converting " + i[0])
+        audio = AudioSegment.from_file(path + i[0], i[1])
+        metadata = mediainfo(path + i[0]).get("TAG", None)
+        newName = i[0][:-(len(i[1])+1)] + "." + newExt
+        newPath = auto_add_location + newName
+        tempPath = newName
+        audio.export(tempPath, format=newExt, bitrate=mp3Bitrate, tags=metadata)
+        os.system(""" mv "{}" "{}" """.format(tempPath, newPath))
+        os.system(""" rm "{}" """.format(path + i[0]))
 
 print("Done!")
