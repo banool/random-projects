@@ -589,8 +589,12 @@ if confirm3 == "y":
         print("Converting " + i[0])
         audio = AudioSegment.from_file(path + i[0], i[1])
         metadata = mediainfo(path + i[0]).get("TAG", None)
-        # Deals with weird case where there is title and TITLE, in which title is wrong.
-        metadata["title"] = metadata["TITLE"]
+        try:
+            # Deals with weird case where there is title and TITLE, in which title is wrong.
+            metadata["title"] = metadata["TITLE"]
+        except:
+            # There must not have been a TITLE tag.
+            pass
         newName = i[0][:-(len(i[1])+1)] + "." + newExt
         newPath = auto_add_location + newName
         tempPath = newName
