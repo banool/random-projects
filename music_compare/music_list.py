@@ -138,6 +138,7 @@ reached by just piping yes into this script, but this is still nice.
 
 import os
 from subprocess import call
+from tempfile import mkdtemp
 from sys import exit
 import platform
 from time import ctime, time
@@ -155,7 +156,7 @@ if yesToAllConf == "y":
 print()
 
 def unmount():
-    umountCommand = "umount %s && rm -R %s" % (mountLocation, mountLocation)
+    umountCommand = "diskutil unmount force %s && rm -rf %s" % (mountLocation, mountLocation)
     os.system(umountCommand)
     print("Unmounted the remote drive.")
 
@@ -223,7 +224,9 @@ def crawl(start, exts, excludedDirs, lastCheckTime):
     # Recurse through each dir and check if they were made after the
     # last time we checked the record (UNIX epoch time).
     for i in os.listdir(start):
-        if int(os.path.getmtime(start+"/"+i)) > lastCheckTime and i not in excludedDirs:
+        path = start+"/"+i
+
+        if int(os.path.getmtime(path)) > lastCheckTime and i not in excludedDirs:
             changed.append(i)
 
     if (len(changed)) > 0:
@@ -286,7 +289,7 @@ music_exts = get_extensions(ext_fname, True)
 
 
 # Variables for attempting to mount the drive automatically.
-mountLocation = "/Users/daniel/Desktop/tempmount"
+mountLocation = mkdtemp()
 username = "delugeuser"
 password = os.environ["SMBPWORD"]
 remoteServerName = "server"
@@ -300,23 +303,25 @@ def mountAutomaticallySSH():
     Should only ask for password if key based auth fails.
     """
     start_remote = mountLocation + "/iTunes Media/Music"
-
+    
     print("Trying to mount automatically via SSH.")
     if not os.path.exists(mountLocation):
         os.makedirs(mountLocation)
 
     args = (username, remoteServerSSH, remoteDirSSH, mountLocation)
-    mountCommand = "sshfs -p 25566 %s@%s:%s %s" % args
+    mountCommand = "sshfs %s@%s:%s %s" % args
     
     status = call(mountCommand, shell=True)
     if status != 0:
         return -1
-
+    
     print("Mounted via SSH automatically to " + mountLocation)
-
+    
     return crawl(start_remote, music_exts, excludedDirs, lastCheckTime)
 
 # Moved this down one in the chain. Will try using ssh first now.
+# Note the samba version has difficulties with some non-english chars.
+# The specific example being japanese such as: : ミュージシャン・バンド
 def mountAutomaticallySMB():
     """
     Tries to mount the remote drive via SMB itself before crawling it.
