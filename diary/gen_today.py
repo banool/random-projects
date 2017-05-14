@@ -2,13 +2,14 @@
 
 from contextlib import suppress
 from datetime import datetime, timedelta
-from os.path import isfile
+from os import system
 from tools import (
     get_config,
     fancy_date_string,
     seconds_since_midnight,
 )
 
+import os.path
 import time
 
 config = get_config()
@@ -27,7 +28,7 @@ def get_entry_date():
     current_unix_time = int(time.time())
     secs_since_midnight = seconds_since_midnight()
     print(f'The current date is {today_fancy}.')
-    if secs_since_midnight < 18000:  # 5am
+    if secs_since_midnight < 72000:  # 18000 == 5am, but just making it big because i wanna be asked always
         yesterday_fancy = fancy_date_string(local_tz, -1)
         print(f'Are you sure you don\'t mean {yesterday_fancy}?')
         response = None
@@ -63,6 +64,15 @@ date_fancy, day_offset, unix_time_at_noon = get_entry_date()
 structure = [
     [''],
     [''],
+    # I guess just put things that you watched or read or whatever
+    ['## Media consumed'],
+    ['Started: '],
+    ['Continued: '],
+    ['Finished: '],
+    [''],
+    # You don't have to fill this section in if nothing happened friend :)
+    ['## Life events'],
+    [''],
     # The tags should be comma separated.
     ['## Indexing metadata'],
     ['Tags: '],
@@ -75,13 +85,18 @@ structure = [
     # is being written about. The time represents when I woke up, not when the
     # diary entry was written, just in case I wrote the entry after midnight.
     ['Unix time at noon: ', str(unix_time_at_noon)],
-    ['Local TZ: ', config['LOCAL_TZ']],
+    ['Local TZ: ', local_tz],
+    [''],
 ]
 
+ENTRIES_DIRECTORY_NAME = 'entries'
+
 dt = datetime.today() - timedelta(-day_offset)
-fname = f'{dt.year}-{dt:%m}-{dt:%d}.md'
-if not isfile(fname):
+fname = os.path.join(ENTRIES_DIRECTORY_NAME, f'{dt.year}-{dt:%m}-{dt:%d}.md')
+if not os.path.isfile(fname):
     with open(fname, 'w') as f:
         f.writelines([''.join(line) + '\n' for line in structure])
 else:
     print(f'The file name {fname} already exists. Chickening out.')
+
+system(f'atom -a {fname}')
