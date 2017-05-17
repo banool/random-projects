@@ -17,15 +17,16 @@ EOF
 
 postpend="</article>"
 
-num=0
 cd entries
 for i in *.md; do
     html_location=../generated_html/${i%.md}.html
     # Only generate the html if the markdown is newer (or the html no existe).
     if [ "$i" -nt "$html_location" ] || [ $1 ]; then
-        python3 -m markdown -x markdown.extensions.nl2br $i > $html_location
-        echo $prepend | cat - $html_location > temp$num && mv temp$num $html_location
-        echo $postpend >> $html_location
+        python3 -m markdown -x markdown.extensions.nl2br $i > $html_location;
+        tmpfile=`mktemp`
+        echo $prepend | cat - $html_location > $tmpfile
+        echo $postpend >> $tmpfile
+        mv $tmpfile $html_location
         echo $i
     fi
 done

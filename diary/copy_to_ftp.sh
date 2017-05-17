@@ -10,7 +10,7 @@ HOST="members.iinet.net.au"
 USER=$FTPUSER
 PASS=$FTPPASS
 FTPURL="ftp://$USER:$PASS@$HOST"
-LCD="./generated_html"
+LCD="generated_html"
 RCD="entries"
 DELETE="--delete"  # Comment this out to not delete files that
                    # aren't present locally from the remote directory.
@@ -26,7 +26,7 @@ mirror --reverse \
        --exclude-glob a-file-group-to-exclude* \
        --exclude-glob other-files-to-exclude"
 
-LCD="./images"
+LCD="images"
 RCD="images"
 
 lftp -c "set ftp:list-options -a;
