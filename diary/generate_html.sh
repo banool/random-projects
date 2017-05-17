@@ -22,9 +22,9 @@ for i in *.md; do
     html_location=../generated_html/${i%.md}.html
     # Only generate the html if the markdown is newer (or the html no existe).
     if [ "$i" -nt "$html_location" ] || [ $1 ]; then
-        python3 -m markdown -x markdown.extensions.nl2br $i > $html_location;
         tmpfile=`mktemp`
-        echo $prepend | cat - $html_location > $tmpfile
+        echo $prepend > $tmpfile
+        python3 ../filter.py < $i | python3 -m markdown -x markdown.extensions.nl2br >> $tmpfile;
         echo $postpend >> $tmpfile
         mv $tmpfile $html_location
         echo $i

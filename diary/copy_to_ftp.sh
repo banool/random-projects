@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 
 # Generating html from all the .md files
-./generate_html.sh
+./generate_html.sh $1
 
 # You need lftp for this
 
-#!/bin/bash    
 HOST="members.iinet.net.au"
 USER=$FTPUSER
 PASS=$FTPPASS
