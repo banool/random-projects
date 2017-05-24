@@ -3,6 +3,7 @@
 
 read -d '' prepend << EOF
 <link rel="stylesheet" href="github-markdown.css">
+<meta name="robots" content="noindex,nofollow">
 <style>
 	.markdown-body {
 		box-sizing: border-box;

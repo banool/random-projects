@@ -3,10 +3,12 @@ import sys
 # This allows you to use the <private> and </private> tags to prevent
 # things from being generated in the html.
 
+ignore_tags = ['<private>', '</private>', '<secret>', '</secret>']
+
 ignore = False
 for line in sys.stdin:
     line = line.strip()
-    if line == '<private>' or line == '</private>':
+    if line in ignore_tags:
         ignore = not ignore
         print('**Private section.**') if ignore else id(0)
     if ignore:
