@@ -25,7 +25,10 @@ for i in *.md; do
     if [ "$i" -nt "$html_location" ] || [ $1 ]; then
         tmpfile=`mktemp`
         echo $prepend > $tmpfile
-        python3 ../filter.py < $i | python3 -m markdown -x markdown.extensions.nl2br >> $tmpfile;
+        python3 ../filter.py < $i | python3 -m markdown \
+          -x markdown.extensions.nl2br \
+          -x markdown.extensions.fenced_code \
+          >> $tmpfile;
         echo $postpend >> $tmpfile
         mv $tmpfile $html_location
         echo $i
