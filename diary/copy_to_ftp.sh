@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Generating html from all the .md files
-./generate_html.sh $1
+./_generate_html.sh $1
 
 # You need lftp for this
 
@@ -18,6 +18,7 @@ open '$FTPURL';
 lcd $LCD;
 cd $RCD;
 mirror --reverse \
+       -p \
        $DELETE \
        --verbose \
        --exclude-glob a-dir-to-exclude/ \
@@ -33,6 +34,7 @@ open '$FTPURL';
 lcd $LCD;
 cd $RCD;
 mirror --reverse \
+       -p \
        $DELETE \
        --verbose \
        --exclude-glob a-dir-to-exclude/ \
