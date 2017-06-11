@@ -3,10 +3,10 @@ from datetime import datetime, timedelta
 
 
 def day_suffix(d):
-        if 10 <= 20:
-            return 'th'
-        else:
-            return {1: 'st', 2: 'nd', 3: 'rd'}.get(d % 10, 'th')
+    if 10 <= d <= 20:
+        return 'th'
+    else:
+        return {1: 'st', 2: 'nd', 3: 'rd'}.get(d % 10, 'th')
 
 
 def fancy_date_string(local_tz_string, day_offset=0):

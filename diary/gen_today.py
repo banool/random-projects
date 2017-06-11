@@ -2,7 +2,7 @@
 
 from contextlib import suppress
 from datetime import datetime, timedelta
-from os import system
+import subprocess
 from tools import (
     get_config,
     fancy_date_string,
@@ -62,7 +62,7 @@ def get_entry_date():
 date_fancy, day_offset, unix_time_at_noon = get_entry_date()
 
 structure = [
-    [''],
+    ['# ', date_fancy],
     [''],
     # I guess just put things that you watched or read or whatever
     ['## Media consumed'],
@@ -99,4 +99,11 @@ if not os.path.isfile(fname):
 else:
     print(f'The file name {fname} already exists. Chickening out.')
 
-system(f'atom -a {fname}')
+for editor in ['code', 'atom -a']:
+    with suppress(subprocess.CalledProcessError):
+        subprocess.check_output(
+            f'{editor} {fname}',
+            shell=True,
+            stderr=subprocess.DEVNULL,
+        )
+        break
