@@ -3,7 +3,7 @@ import sys
 # This allows you to use the <private> and </private> tags to prevent
 # things from being generated in the html.
 
-ignore_tags = ['<private>', '</private>', '<secret>', '</secret>']
+ignore_tags = ['<private>', '</private>', '<\\private>', '<secret>', '</secret>', '<\\secret>']
 
 ignore = False
 for line in sys.stdin:
