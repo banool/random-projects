@@ -2,7 +2,7 @@
 
 from contextlib import suppress
 from datetime import datetime, timedelta
-import subprocess
+from os import mkdir
 from tools import (
     get_config,
     fancy_date_string,
@@ -10,6 +10,7 @@ from tools import (
 )
 
 import os.path
+import subprocess
 import time
 
 config = get_config()
@@ -90,6 +91,8 @@ structure = [
 ]
 
 ENTRIES_DIRECTORY_NAME = 'entries'
+if not os.path.isdir(ENTRIES_DIRECTORY_NAME):
+    mkdir(ENTRIES_DIRECTORY_NAME)
 
 dt = datetime.today() - timedelta(-day_offset)
 fname = os.path.join(ENTRIES_DIRECTORY_NAME, f'{dt.year}-{dt:%m}-{dt:%d}.md')

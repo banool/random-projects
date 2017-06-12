@@ -18,6 +18,8 @@ EOF
 
 postpend="</article>"
 
+mkdir -p generated_html
+
 cd entries
 for i in *.md; do
     html_location=../generated_html/${i%.md}.html
