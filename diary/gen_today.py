@@ -23,14 +23,14 @@ def get_entry_date():
     for what happened in technically the previous day. This function confirms
     which date you actually want to write the entry for.
     '''
-    today_fancy = fancy_date_string(local_tz)
+    today_fancy = fancy_date_string(local_tz, day_offset=0)
     fancy = today_fancy
     day_offset = 0
     current_unix_time = int(time.time())
     secs_since_midnight = seconds_since_midnight()
     print(f'The current date is {today_fancy}.')
     if secs_since_midnight < 72000:  # 18000 == 5am, but just making it big because i wanna be asked always
-        yesterday_fancy = fancy_date_string(local_tz, -1)
+        yesterday_fancy = fancy_date_string(local_tz, day_offset=-1)
         print(f'Are you sure you don\'t mean {yesterday_fancy}?')
         response = None
         while response not in [1, 2, 3]:
@@ -48,11 +48,15 @@ def get_entry_date():
             fancy = yesterday_fancy
             day_offset = -1
         else:
-            raise NotImplementedError
-            unix_time = input(
-                'Please enter the unix time for noon of the day you want: '
-            )
-            day_offset = datetime.datetime.utcfromtimestamp(unix_time)
+            conf = False
+            while not conf:
+                day_offset = -(int(input('How many days ago do you want? ')))
+                fancy = fancy_date_string(local_tz, day_offset=day_offset)
+                print('Is this the date you mean:')
+                print(fancy)
+                response = input('Enter (y)es or (n)o: ')
+                if response[0].lower() == 'y':
+                    conf = True
 
     unix_time = current_unix_time - secs_since_midnight + \
         43200 - (86400 * -day_offset)
