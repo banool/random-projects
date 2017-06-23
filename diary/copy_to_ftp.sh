@@ -26,18 +26,18 @@ mirror --reverse \
        --exclude-glob a-file-group-to-exclude* \
        --exclude-glob other-files-to-exclude"
 
-LCD="images"
-RCD="images"
+#LCD="images"
+#RCD="images"
 
-lftp -c "set ftp:list-options -a;
-open '$FTPURL';
-lcd $LCD;
-cd $RCD;
-mirror --reverse \
-       -p \
-       $DELETE \
-       --verbose \
-       --exclude-glob a-dir-to-exclude/ \
-       --exclude-glob a-file-to-exclude \
-       --exclude-glob a-file-group-to-exclude* \
-       --exclude-glob other-files-to-exclude"
+#lftp -c "set ftp:list-options -a;
+#open '$FTPURL';
+#lcd $LCD;
+#cd $RCD;
+#mirror --reverse \
+#       -p \
+#       $DELETE \
+#       --verbose \
+#       --exclude-glob a-dir-to-exclude/ \
+#       --exclude-glob a-file-to-exclude \
+#       --exclude-glob a-file-group-to-exclude* \
+#       --exclude-glob other-files-to-exclude"
